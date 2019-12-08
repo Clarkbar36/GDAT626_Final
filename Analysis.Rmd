@@ -47,7 +47,7 @@ rm(list=c("package_name", "package_names")) # clean up the environment
 set.seed(61818)
 options(show.signif.stars = FALSE)  # Don't confuse significance & effect size!
 options(scipen=999) # Turn off scientifc notations
-setwd("~/Box/Alissa Private Folder/Alex/Grad School/GDAT626/Final Project")
+setwd("~/Documents/GitHub/GDAT626_Final")
 ```
 
 ```{r load in all dfs, include=FALSE}
