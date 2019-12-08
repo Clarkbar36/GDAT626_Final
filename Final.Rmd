@@ -1,0 +1,350 @@
+---
+title: "Alex Clark"
+author: "GDAT626 - Final Project"
+header-includes:
+  - \usepackage[dvipsnames]{xcolor}
+  - \definecolor{darkblue}{gray}{0.45}
+  - \definecolor{darkblue}{RGB}{25,25,112}
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[CO,CE]{\thepage}
+  - \fancyfoot[CO,CE]{Alex Clark - Final Project}
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+c("data.table",
+  "tidyverse",
+  "plyr",
+  "dtplyr",
+  "TTR",
+  "astsa",
+  "lubridate",
+  "tsbox",
+  "tseries",
+  "xts",
+  "zoo",
+  "forecast",
+  "openxlsx",
+  "mlbench",
+  "caret",
+  "random",
+  "tsfeatures",
+  "knitr"
+  ) -> package_names  
+for(package_name in package_names) {
+  if(!is.element(package_name, installed.packages()[,1])) {
+     install.packages(package_name,
+                      repos = "http://cran.mtu.edu/")
+  }
+  library(package_name, character.only=TRUE,
+          quietly=TRUE,verbose=FALSE)
+}
+
+rm(list=c("package_name", "package_names")) # clean up the environment
+set.seed(61818)
+options(show.signif.stars = FALSE)  # Don't confuse significance & effect size!
+options(scipen=999) # Turn off scientifc notations
+setwd("~/Box/Alissa Private Folder/Alex/Grad School/GDAT626/Final Project")
+```
+
+Climate change and global warming is increasingly becoming a discussion in the fore-front of political debates and general public discord. There is a side that doesn't beleive that climate change is real, and there is another side that thinks it is very much real and might even be too late to reverse. Using data from NASA I will be attempting to leverage time series analyses to get to the bottom of the question, is climate change really happening? 
+
+First I will load in the .csv files from NASA. 
+```{r load in all dfs}
+c02 = read.csv("CO2.csv")
+ice = read.csv("Ice.csv")
+temp = read.csv("temp.csv")
+```
+
+## EDA of Data:
+
+Here is a glimpse of the $CO_2$ data: 
+
+### $CO_2$:
+```{r head C02, echo=FALSE}
+glimpse(c02)
+```
+
+This data is monthly, from March 1958 to October 2019. The variables average, interpolated, and trend..season.corr all attempt to measure the $CO_2$ levels. I will be using the trend..season.corr variable as this is the most consistent field and accounts for seasonality within the data. In order for climate change to be happening I would expect CO2 levels to be rising each year.
+
+A glimpse of the Ice Level data:
+
+### Arctic Sea Ice Level
+```{r head ice, echo=FALSE}
+glimpse(ice)
+```
+
+The ice level data is yearly, each measurement is taken in September which makes sense, this would theorectially be the lowest level the ice would be in a year, after summer time, when the Earth is the warmest and before winter where the ice levels would begin to rise again as it gets colder. I will be using the area variable for my analysis, as this best represents the total area of the ice levels. In order for there to be signs of climate change I would expect the ice levels to be decreasing over time. This would indicate that the Earth's temperature is increasing therefore melting the ice and the ice level area would be smaller. 
+
+A glimpse of the Temperature data:
+
+### Temperature:
+```{r head temp, echo=FALSE}
+glimpse(temp)
+```
+
+This data is yearly, the data is not the actual temperature taken each year. It is the temperature anamoly, this is the variation of the years average temperature from the average temperature from the previous five years. I will be using the Lowess.5 variable as this is already smoothed and cleaned by NASA. In order for climate change to be happening, I would expect the Lowess.5 variable to be increasing. This would mean each year is warmer than the previous five years. 
+
+I can then create a time series of the indicators. First, I will create a time series of the CO2 data. Since the data is monthly, I will be setting the frequency to 12. 
+
+### Time Series of CO2:
+```{r c02 time series, echo=FALSE}
+c02.ts <- ts(c02$trend..season.corr., start = c(1958,3), end = c(2019,10), frequency = 12)
+head(c02.ts,20)
+```
+
+Setting the start as c(1958,3) is saying that the first observations I have is March of 1958, and the end as c(2019,10) means I only have data to October 2019.
+
+I also created a time series of the ice levels, since this is yearly data I set the frequency to 1, as each observation is representitive of 1 period of time.  
+
+### Time Series of Ice Levels:
+```{r ice time series, echo=FALSE}
+ice.ts <- ts(ice$area, start = c(1979), end = c(2019), frequency = 1)
+ice.ts
+```
+
+I can then finally make a time series of the temperature data. This is the longest set of data I have, it starts in 1880 and ends in 2018. I set this frequency to 1 as well, since each observation represents a year of time. 
+
+### Time Series of Temperature:
+```{r temp time series, echo=FALSE}
+temp.ts <- ts(temp$Lowess.5., start = c(1880), frequency = 1)
+temp.ts
+```
+
+The next step is to plot these time series of data, to see what they actually look like and if there is some inferences I can make from the trends of the plots. 
+
+The $CO_2$ data is in a frequency greater than 2, which means I can decompose the data and look at the seasonality of it. I can also create a box plot to look at the data per frequency. 
+
+### Plot of $CO_2$:
+```{r plot c02.ts, echo=FALSE}
+plot(c02.ts, main = "CO2 Time Series", ylab = "Trend", xlab = "Year")
+abline(reg=lm(c02.ts~time(c02.ts)), col = "blue")
+plot(decompose(c02.ts))
+boxplot(c02.ts~cycle(c02.ts), main = "CO2 Boxplot", ylab = "Trend", xlab = "Month")
+```
+
+The $CO_2$ data has a clearly increasing trend, it is pretty much linear, the best fit line fits the data pretty well. The decomposition shows there is indeed an increasing trend to the data, there looks like there is a pretty frequent seasonality to the data. The graph also indcates there is some randomality to the data as well. The box plot doesn't really tell much, it seems the $CO_2$ level trend is similar each month. 
+
+### Plot of Ice Levels:
+```{r plot ice.ts, echo=FALSE}
+plot(ice.ts, main = "Time Series of Ice Levels", xlab = "Year", ylab = "Area")
+abline(reg=lm(ice.ts~time(ice.ts)), col = "blue")
+```
+
+I was not able to decompose the data since there was only one frequency, but a plot of the data shows a decreasing trend. The ice level areas also seem to fluctuate year to year within the decreasing trend. The best fit line doesn't seem to fit that data as well as I would have hoped. 
+
+### Plot of Temperature:
+```{r plot temp.ts, echo=FALSE}
+plot(temp.ts, main = "Time Series of Temperature", xlab = "Year", ylab = "Lowess 5")
+abline(reg=lm(temp.ts~time(temp.ts)), col = "blue")
+```
+
+Like the ice levels I was not able to decompose the temperature data since it only had a frequency of 1.  But a plot of the data shows an increasing trend, the small spike in the 1940s is interesting. There was a major event that happened on Earth in that itme frame, the nuclear bomb was dropped on Hiroshima, I wonder if that could be the cause of the spike. The best fit line fits the data pretty well from 1900 to 2000, but as the temperature has increased at a hig rate since 2000, the best fit line doesn't fit as well.
+
+The next step of the EDA process is to look at the data and decide if it is normal or not. 
+
+First, I will look at a histogram of the $CO_2$ data and run a ks.test on the data to infer if the data is normal.
+
+### Hstogram and KS test of $CO_2$: 
+```{r histogram of c02, echo=FALSE}
+hist(c02.ts, main = "CO2 Histogram", xlab = "Trend")
+ks.test(c02.ts, "dnorm")
+```
+
+The histogram of the $CO_2$ data looks to be normal, there may be a slight tail to the right, as the data drops off at 420 or so, but all of the data is within a close range of each other. The ks.test further proves that the data is normal the p-value being < .05 means we reject the null hypothsis and the data is normal. 
+
+### Hstogram and KS test of Ice Levels:
+```{r histogram of ice, echo=FALSE}
+hist(ice.ts, main = "Histogram of Ice Levels")
+ks.test(ice.ts, "dnorm")
+```
+
+The histogram of the ice levels looks to be normal, the data comes to a peak in the middle of the histogram and drops off again to the right. The ks.test again confrims that the data is normal, with a p-value < .05.
+
+### Hstogram and KS test of Temperature:
+```{r histogram of temp, echo=FALSE}
+hist(temp.ts, main = "Histogram of Temperature")
+ks.test(temp.ts, "dnorm")
+```
+
+A histogram of the temperature data appears to be normal, with a tail to the right. Most of the observations land in the second bin. The ks.test confirms this with a p-value < .05. 
+
+The next step is to test is the data is stationary or moving. I will be using an adf.test for this.
+
+### Test Stationary of $CO_2$: 
+```{r stationary test of c02, echo=FALSE}
+adf.test(c02.ts)
+```
+
+The adf test produces a p-value of .99, if the p-value is < .05 I could conclude that the data is stationary, since the p-value is > .05 I conclude the data is non-stationary. 
+
+### Test Stationary of Ice Levels:
+```{r stationary test of ice, echo=FALSE}
+adf.test(ice.ts)
+```
+
+The adf test produces a p-value of .55, if the p-value is < .05 I could conclude that the data is stationary, since the p-value is > .05 I conclude the data is non-stationary. 
+
+### Test Stationary of Temperature:
+```{r stationary test of temp, echo=FALSE}
+adf.test(temp.ts)
+```
+
+The adf test produces a p-value of .99, if the p-value is < .05 I could conclude that the data is stationary, since the p-value is > .05 I conclude the data is non-stationary. 
+
+The next step of the EDA is to shift the data to see if I can glean further insights and see if there are other trends in the data that aren't seen by looking at the normally.
+
+First, I will shift the $CO_2$ data by 5, I chose 5 because that is the lag order that the adf.test produced. 
+
+### Shift $CO_2$ by 5:
+```{r shift c02 data, warning=FALSE, error=FALSE, echo=FALSE}
+xn <- c02.ts
+xnp1 <- shift(c02.ts,9)
+plot(xnp1, xn, main = "Shift by 9 - CO2", xlab = "Shift", ylab = "CO2", type = "l") 
+```
+
+Shifting the $CO_2$ data by 5, produced an even more linear trend than the normal data showed, there is some slight noise in the data as it isn't a clear linear line. 
+
+### Shift Ice Levels by 3:
+```{r shift ice data, warning=FALSE, error=FALSE, echo=FALSE}
+xn <- ice$area
+xnp1 <- shift(ice$area, 3)
+plot(xnp1, xn, main = "Shift by 3 - Ice", xlab = "Shift", ylab = "Ice", type = "l") 
+```
+
+Shifting the ice data by 3, produced a very ugly and unhelpful plot. I can't make heads or tails of what this plot is trying to represent. 
+
+### Shift Temperature by 5:
+```{r shift temp data, warning=FALSE, error=FALSE, echo=FALSE}
+xn <- temp$Lowess.5.
+xnp1 <- shift(temp$Lowess.5., 5)
+plot(xnp1, xn, main = "Shift by 5 - Ice", xlab = "Shift", ylab = "Lowess 5", type = "l") 
+```
+
+Shifting the temperature data by 5 also produced an ugly and unhelpful graph, there seems to be a slightly increaing trend to the data, I think a linear line could fit this plot but the first part of the plot is confusing and unhelpful.
+
+The next step is to test the auto correlation of the data.
+
+### ACF and PACF of $CO_2$:
+```{r autocorrelate c02, echo=FALSE}
+autoplot(acf(c02.ts, plot = FALSE)) + ggtitle("ACF - CO2") 
+autoplot(pacf(c02.ts, plot = FALSE)) + ggtitle("PACF - CO2") 
+```
+
+The ACF of the $CO_2$ data shows there is a high auto-correlation of the data. This means that the data is reliant on the observation before it. The current $CO_2$ level depends on the previous $CO_2$ level. the PACF shows there is an inital randomness in the first observation, this is due to there not being an observation before it, and then after that the observations all rely on the previous observation.
+
+### ACF and PACF of Ice Levels:
+```{r autocorrelate ice, echo=FALSE}
+autoplot(acf(ice.ts, plot = FALSE)) + ggtitle("ACF - Ice")
+autoplot(pacf(ice.ts, plot = FALSE)) + ggtitle("PACF - Ice")
+```
+
+The ACF of the ice levels shows that the first 10 or so observations rely on the previous observation and then after that they do not depend on the previous observation and are more random. The PACF shows there is some trend in the data, at about every 6 observations there could be a trend, 
+
+### ACF and PACF of Temperature:
+```{r autocorrelate temp, echo=FALSE}
+autoplot(acf(temp.ts, plot = FALSE)) + ggtitle("ACF - Temp")
+autoplot(pacf(temp.ts, plot = FALSE)) + ggtitle("PACF - Temp")
+```
+
+The ACF of the temperature data is very similar to the ACF of the $CO_2$ data, it is very much reliant on the observations previous. This years temperature anamoly depends on the anamoly of the previous years. The PACF is similar to the $CO_2$ data as well, after the first observation there is a reliance on the on the previous observations data. 
+
+The last step of the EDA is to run a peridogram of the data, this will help show if there are other trends or seasons to the data that the other plots couldn't see. 
+
+### Periodogram of $CO_2$:
+```{r periodogram c02, echo=FALSE}
+TSA::periodogram(c02.ts, main = "CO2 Periodogram")
+```
+
+This periodogram for the $CO_2$ data shows there aren't any hidden trends in the data. The large lines closest to zero show that the trends in the data are at the frequency I had set before, monthly.   
+
+### Periodogram Ice Levels:
+```{r periodogram ice, echo=FALSE}
+TSA::periodogram(ice.ts, main = "Ice Periodogram")
+```
+
+The ice level periodogram shows there are some hidden trends in the data, there is a bigger line just after each large tick in frequency, this could mean there is trends in a frequency smaller than the frequency I am using of yearly. This could mean there is a seasonal frequency that could show more of what is going on with the ice levels.
+
+### Periodogram Temperature:
+```{r periodogram temp, echo=FALSE}
+TSA::periodogram(temp.ts, main = "Temperature Periodogram")
+```
+
+The temperatrue periodogram shows that I have the most representative frequency, but there may be some other frequencies that show trends that aren't apparent in the other plots. These frequencies could be longer periods of time, where I am looking at each year, there might be some insights in longer frequencies, like 5 years or a decade. 
+
+Now that I have explored the data, I can use these time series to predict what the indicators will look like in a set period of time forward.
+
+\pagebreak
+
+## Predictions
+
+### Predict $CO_2$:
+
+Using Auto-ARIMA I will try to predict what the next 50 years of $CO_2$ levels will look like with 95% confidence.
+
+### ARIMA - $CO_2$: 
+```{r ARIMA c02, echo=FALSE}
+c02.arima <- forecast::auto.arima(c02.ts)
+Box.test(c02.ts, lag = 3, type = c("Ljung-Box"))
+#var(fitted(c02.arima))
+autoplot(forecast(c02.arima, level = c(95), h=600)) + ggtitle("ARIMA Forecast CO2 - 95% CI for 600 periods (50 years)") + xlab("Year") + ylab("CO2 Levels")
+```
+
+The box test shows that the p-value is < .05, which is what we are looking for. The plot of the ARIMA model shows with 95% confidence where the $CO_2$ levels will be. Based on this plot, $CO_2$ will continue to rise at an alamring rate. 
+
+I will run a GARCH model on the $CO_2$ data to see if it yields different/better results than the ARIMA model.
+
+### GARCH - $CO_2$:
+```{r co2, warning=FALSE, echo=FALSE}
+co2.garch <- garch(c02$trend..season.corr.)
+autoplot(forecast(co2.garch$fitted.values[, 1], level = c(95), h=600)) + ggtitle("GARCH Forecast CO2 - 95% CI for 120 periods (10 years)") + xlab("Time") + ylab("CO2 Levels")
+```
+
+This plot is very similar to the ARIMA plot, the confidence interval might be slightly larger then the AMRIA one, but overall this model doesn't improve on my previous model.  
+
+### Predict Arctic Sea Ice Level:
+
+I will run an ARIMA model on the Arctic Sea Ice Level data to see what the sea levels will look like in the next decade. 
+
+### ARIMA - Arctic Sea Ice Level:
+```{r ARIMA ice, echo=FALSE}
+ice.arima <- forecast::auto.arima(ice.ts)
+Box.test(ice.ts, lag = 5, type = c("Ljung-Box"))
+#var(fitted(ice.arima))
+autoplot(forecast(ice.arima, level = c(95), h=10)) + ggtitle("ARIMA Forecast Arctic Sea Ice Level - 95% CI for 10 years") + xlab("Year") + ylab("Arctic Sea Ice Level")
+```
+
+The box test produces a p-value < .05, this is significant and appears to be a decent model. The forecast plot shows that we can't predict much from this model. In the next decade with 95% confidence the model isn't sure which way the ice levels will go, it appears to be a 50-50 shot that the ice levels decrease or increase. 
+
+### GARCH - Arctic Sea Ice Level:
+```{r ice, warning=FALSE, echo = FALSE}
+ice.garch <- garch(ice$area)
+autoplot(forecast(ice.garch$fitted.values[, 1], level = c(95), h=10)) + ggtitle("GARCH Forecast Arctic Sea Ice Level - 95% CI for 10 years") + xlab("Year") + ylab("Arctic Sea Ice Level")
+```
+
+This model isn't any better than the ARIMA model, it cannot predict the ice levels with much confidence. I'm guessing this is due to the volatility of the ice levels each year. 
+
+I will run an ARIMA model on the temperature data to see what the temperature will look like in the next decade. 
+
+### ARIMA - Temperature
+```{r ARIMA temp, echo=FALSE}
+temp.arima <- forecast::auto.arima(temp.ts)
+Box.test(temp.ts, lag = 5, type = c("Ljung-Box"))
+#var(fitted(temp.arima))
+autoplot(forecast(temp.arima, level = c(95), h=10)) + ggtitle("ARIMA Forecast Temperature - 95% CI for 10 years") + xlab("Year") + ylab("Temperature")
+```
+
+The box test for this model produced a p-value < .05. This appears to be a good model, the plot looks promising as well. With 95% confidence it predicts the temperature to sky rocket or maybe dip slightly. The confidence interval in the plot looks small, so the model appears to be pretty confident in it's prediction. 
+
+### GARCH - Temperature
+```{r temp, warning=FALSE, echo=FALSE}
+temp.garch <- garch(temp$Lowess.5.)
+autoplot(forecast(temp.garch$fitted.values[, 1], level = c(95), h=10)) + ggtitle("GARCH Forecast Temperature - 95% CI for 10 years") + xlab("Year") + ylab("Temperature")
+```
+
+The GARCH model looks to be a little worse than the ARIMA model, I think this because the plot appears to show a larger area for hte 95% confidence. The variation of the prediction doesn't look as confident as the ARIMA model.
+
+Overall, after analyzing the data and predicting using the data, it looks like climate change is happening. $CO_2$ levels are increasing, ice levels could increase or decrease, I think that depends on the overall Earth's temperature. The Earth's temperature is increasing as well. One major flaw of this analysis is that the data I am using is not as granular as I would like. I would have liked to have found and used monthly or even daily data for this analysis, I think this would have brough to light any seasonality that is happening and got to the root of the question if this is just one big season we are experiencing or if there really is climate change occuring.

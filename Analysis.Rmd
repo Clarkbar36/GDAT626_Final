@@ -1,0 +1,109 @@
+---
+title: "Analysis"
+author: 
+header-includes:
+  - \usepackage[dvipsnames]{xcolor}
+  - \definecolor{darkblue}{gray}{0.45}
+  - \definecolor{darkblue}{RGB}{25,25,112}
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[CO,CE]{\thepage}
+  - \fancyfoot[CO,CE]{Alex Clark - Assignment \#3}
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+c("data.table",
+  "tidyverse",
+  "plyr",
+  "dtplyr",
+  "TTR",
+  "astsa",
+  "lubridate",
+  "tsbox",
+  "tseries",
+  "xts",
+  "zoo",
+  "forecast",
+  "openxlsx",
+  "mlbench",
+  "caret",
+  "random",
+  "tsfeatures",
+  "knitr"
+  ) -> package_names  
+for(package_name in package_names) {
+  if(!is.element(package_name, installed.packages()[,1])) {
+     install.packages(package_name,
+                      repos = "http://cran.mtu.edu/")
+  }
+  library(package_name, character.only=TRUE,
+          quietly=TRUE,verbose=FALSE)
+}
+
+rm(list=c("package_name", "package_names")) # clean up the environment
+set.seed(61818)
+options(show.signif.stars = FALSE)  # Don't confuse significance & effect size!
+options(scipen=999) # Turn off scientifc notations
+setwd("~/Box/Alissa Private Folder/Alex/Grad School/GDAT626/Final Project")
+```
+
+```{r load in all dfs, include=FALSE}
+c02 = read.csv("CO2.csv")
+ice = read.csv("Ice.csv")
+temp = read.csv("temp.csv")
+
+c02.ts <- ts(c02$trend..season.corr., start = c(1958,3), frequency = 12)
+ice.ts <- ts(ice$area, start = c(1979), frequency = 1)
+temp.ts <- ts(temp$Lowess.5., start = c(1880), frequency = 1)
+```
+
+## Predict $CO_2$:
+
+### ARIMA - $CO_2$: 
+```{r ARIMA c02, echo=FALSE}
+c02.arima <- forecast::auto.arima(c02.ts)
+Box.test(c02.ts, lag = 1, type = c("Ljung-Box"))
+#var(fitted(c02.arima))
+autoplot(forecast(c02.arima, level = c(95), h=600)) + ggtitle("ARIMA Forecast CO2 - 95% CI for 600 periods (50 years)") + xlab("Year") + ylab("CO2 Levels")
+```
+
+### GARCH - CO2:
+```{r co2, warning=FALSE, echo=FALSE}
+co2.garch <- garch(c02$trend..season.corr.)
+autoplot(forecast(co2.garch$fitted.values[, 1], level = c(95), h=600)) + ggtitle("GARCH Forecast CO2 - 95% CI for 600 periods (50 years)") + xlab("Time") + ylab("CO2 Levels")
+```
+
+
+## Predict Arctic Sea Ice Level:
+
+### ARIMA - Arctic Sea Ice Level:
+```{r ARIMA ice, echo=FALSE}
+ice.arima <- forecast::auto.arima(ice.ts)
+Box.test(ice.ts, lag = 5, type = c("Ljung-Box"))
+#var(fitted(ice.arima))
+autoplot(forecast(ice.arima, level = c(95), h=10)) + ggtitle("ARIMA Forecast Arctic Sea Ice Level - 95% CI for 10 years") + xlab("Year") + ylab("Arctic Sea Ice Level")
+```
+
+### GARCH - Arctic Sea Ice Level:
+```{r ice, warning=FALSE, echo = FALSE}
+ice.garch <- garch(ice$area)
+autoplot(forecast(ice.garch$fitted.values[, 1], level = c(95), h=10)) + ggtitle("GARCH Forecast Arctic Sea Ice Level - 95% CI for 10 years") + xlab("Year") + ylab("Arctic Sea Ice Level")
+```
+
+
+### ARIMA - Temperature
+```{r ARIMA temp, echo=FALSE}
+temp.arima <- forecast::auto.arima(temp.ts)
+Box.test(temp.ts, lag = 5, type = c("Ljung-Box"))
+#var(fitted(temp.arima))
+autoplot(forecast(temp.arima, level = c(95), h=10)) + ggtitle("ARIMA Forecast Temperature - 95% CI for 10 years") + xlab("Year") + ylab("Temperature")
+```
+
+### GARCH - Temperature
+```{r temp, warning=FALSE, echo=FALSE}
+temp.garch <- garch(temp$Lowess.5.)
+autoplot(forecast(temp.garch$fitted.values[, 1], level = c(95), h=10)) + ggtitle("GARCH Forecast Temperature - 95% CI for 10 years") + xlab("Year") + ylab("Temperature")
+```
